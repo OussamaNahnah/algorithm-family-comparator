@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Algorithm family comparison</title><style>
+body{font:14px/1.6 system-ui,sans-serif;color:#222;max-width:1400px;margin:30px auto;padding:0 20px}h1{font-size:24px}select{font:inherit;padding:6px;max-width:100%}label{display:inline-block;margin:0 20px 12px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ddd;padding:7px;text-align:left}thead th{background:#eee}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:600px}.same{background:#e7f3e9}.different{background:#fff0df}.scroll{overflow:auto;max-height:65vh}thead{position:sticky;top:0}summary{cursor:pointer}section{margin:28px 0}.matrix td{text-align:center}.matrix th{white-space:nowrap}caption{text-align:left;padding:8px 0;color:#555}
+.heat{width:max-content;border-collapse:separate;border-spacing:1px}.heat th,.heat td{padding:0;border:0;text-align:center;font-size:10px;min-width:24px;height:24px}.heat button{border:0;width:24px;height:24px;padding:0;font-size:10px;cursor:pointer;color:#111}.heat button:hover,.heat button:focus-visible{outline:3px solid #111;outline-offset:-3px}.heat tbody th{position:sticky;left:0;background:white;z-index:1;padding:0 5px}.heat thead{z-index:2}.legend{display:inline-block;width:180px;height:14px;background:linear-gradient(90deg,hsl(210 65% 96%),hsl(210 65% 38%));vertical-align:middle}.rankings{display:grid;grid-template-columns:1fr 1fr;gap:24px}.pair-button{font:inherit;color:#175b95;background:none;border:0;text-decoration:underline;cursor:pointer}.rankings ol{padding-left:26px}@media(max-width:700px){.rankings{grid-template-columns:1fr}}
+button { margin: 3px 5px; padding: 5px 9px; } #heat-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; } #heat-controls label { margin:0; } #heat-controls > button { margin-left:0; }
+.heat button { margin:0; padding:0; width:24px; height:24px; }
+#exit-diagram{display:none} #diagram-frame:fullscreen,#diagram-frame.expanded{background:white;padding:12px;box-sizing:border-box;width:100vw;height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center} #diagram-frame.expanded{position:fixed;inset:0;z-index:9999} #diagram-frame:fullscreen #exit-diagram,#diagram-frame.expanded #exit-diagram{display:block;flex-shrink:0} #diagram-frame:fullscreen #heat-scroll,#diagram-frame.expanded #heat-scroll{max-height:none;overflow:hidden;width:100%;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+</style></head><body><h1>Algorithm family comparison</h1>
+<p id="load-status" role="status">Loading classification data…</p>
+
+
+<section><h2>Family differences</h2>
+<p>Each cell counts different families. <strong>Lower = more similar.</strong> Click a cell to compare.</p><details><summary>How the score works</summary><p>Each family counts equally. Related families can count separately. The score counts group differences, not their magnitude.</p></details>
+<p>Fewer differences <span class="legend" aria-hidden="true"></span> More differences <span id="range"></span></p>
+<p id="distance-summary"></p>
+
+<div id="heat-controls"></div><p id="compute-status" role="status"></p><p id="ranking-scope"></p><button id="rank-reference" type="button">Recalculate all pairs</button><button id="cancel-rank" type="button" hidden>Cancel ranking</button>
+<p>All algorithms × all algorithms. Choose a page size and row/column pages; click a cell to compare.</p><button id="fullscreen-diagram" type="button" title="Fit diagram to screen">⛶ Fullscreen</button><div id="diagram-frame"><button id="exit-diagram" type="button">✕ Exit fullscreen (Esc)</button><div class="scroll" id="heat-scroll"><div id="heat-track" style="position:relative"><canvas id="heat" tabindex="0" aria-label="Family differences matrix. Click a cell, or use the two algorithm selectors below for an accessible comparison." style="position:sticky;left:0;display:block"></canvas></div></div></div>
+<div class="rankings"><div><h3>Most similar pairs</h3><ol id="closest"></ol></div><div><h3>Most different pairs</h3><ol id="furthest"></ol></div></div>
+<p>Top 10 pairs shown; ties are possible.</p>
+</section>
+<section id="pair-section"><h2>Compare two algorithms</h2><label>First algorithm <select id="first"></select></label><label>Second algorithm <select id="second"></select></label>
+<label>Show <select id="filter"><option value="all">All families</option><option value="same">Shared groups only</option><option value="different">Different groups only</option></select></label>
+<p id="summary" role="status"></p><div class="scroll"><table><thead><tr><th>Family</th><th>Comparison</th><th>First group</th><th>Second group</th><th>Recorded signatures</th></tr></thead><tbody id="pairs"></tbody></table></div></section>
+<section><h2>Algorithm × family table</h2><p>Same number in a column = same group.</p><div id="matrix-controls"></div><div class="scroll"><table class="matrix" id="matrix"></table></div></section>
+<section><h2>Family → group → algorithms</h2><p>Expand a family and group to see its members.</p><div id="tree"></div></section>
+<script>
+// Data folder, relative to this HTML file (or a full URL).
+const CLASSIFICATION_DATA_PATH = new URLSearchParams(window.location.search).get('data') || 'global_classification_data';
+function dataFile(name){return CLASSIFICATION_DATA_PATH.replace(/\/+$/, '') + '/' + name;}
+
+function loadScript(path){return new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=path;script.onload=resolve;script.onerror=()=>reject(new Error(`Could not load ${path}. Check CLASSIFICATION_DATA_PATH and that the file exists.`));document.head.append(script);});}
+async function loadData(){
+ await loadScript(dataFile('common_data.min.js'));
+ const common=window.classificationCommonData;
+ if(!common||!Array.isArray(common.family_titles)||!common.family_titles.length)throw new Error('common_data.min.js has no family list.');
+ const families=[],skipped=[];let expected=null;
+ for(const info of common.family_titles){
+  const id=Number(info.id);if(!Number.isInteger(id)||id<1)throw new Error('Invalid family ID in common data.');
+  document.getElementById('load-status').textContent=`Loading family ${id} (${families.length+1}/${common.family_titles.length})…`;
+  try{await loadScript(dataFile(`family_${id}.min.js`));}
+  catch(error){skipped.push(id);console.warn(`Skipping unavailable family ${id}:`,error.message);continue;}
+  const raw=window[`familyData_${id}`];
+  if(!raw||!Array.isArray(raw.groups)){skipped.push(id);console.warn(`Skipping family ${id}: no group data.`);continue;}
+  const membership=Object.create(null);
+  const groups=raw.groups.map((g,i)=>{
+   for(const a of g.algorithms){if(Object.hasOwn(membership,a))throw new Error(`Duplicate algorithm ${a} in family ${id}.`);membership[a]=i+1;}
+   return {id:i+1,signature:g.signature,algorithms:g.algorithms};
+  });
+  const algorithms=Object.keys(membership).sort();
+  if(expected&&JSON.stringify(expected)!==JSON.stringify(algorithms))throw new Error(`Family ${id} has a different algorithm set. Comparison stopped to avoid incorrect results.`);
+  expected=algorithms;
+  families.push({id,title:raw.title,membership,groups});
+ }
+ families.sort((a,b)=>a.id-b.id);
+ if(!families.length)throw new Error('No family files could be loaded. Check the data folder URL.');
+ const algorithms=expected.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+ if(!algorithms.length)throw new Error('No algorithms found.');
+ document.getElementById('load-status').textContent=`${algorithms.length.toLocaleString()} algorithms · ${families.length} families`+(skipped.length?` · Unavailable families skipped: ${skipped.join(', ')}. Scores use loaded families only.`:'');
+ return {families,algorithms};
+}
+async function start(){
+const data=await loadData();
+
+const $=id=>document.getElementById(id);
+function element(tag,text,parent){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e;}
+for(const id of ['first','second'])for(const a of data.algorithms){const o=element('option',a,$(id));o.value=a;}
+if(data.algorithms.length>1)$('second').selectedIndex=1;
+function compare(){
+ const a=$('first').value,b=$('second').value;let same=0;$('pairs').replaceChildren();
+ for(const f of data.families){const ga=f.membership[a],gb=f.membership[b],equal=ga===gb;const kind=equal?'same':'different';if(equal)same++;
+ if($('filter').value!=='all'&&$('filter').value!==kind)continue;
+ const row=element('tr',undefined,$('pairs'));row.className=kind;
+ for(const text of [`${f.id}: ${f.title}`,equal?'Same group':'Different groups',ga,gb])element('td',text,row);
+ const cell=element('td',undefined,row),details=element('details',undefined,cell);element('summary','Show signatures',details);
+ element('pre',`First: ${f.groups[ga-1].signature}
+Second: ${f.groups[gb-1].signature}`,details);
+ }
+ $('summary').textContent=`${same} shared · ${data.families.length-same} different families`;
+}
+for(const id of ['first','second','filter'])$(id).addEventListener('change',compare);compare();
+
+const count=data.algorithms.length;
+const active=data.families.filter(f=>f.groups.length>1);
+const width=active.length;
+const codes=new Uint32Array(count*width);
+for(let i=0;i<count;i++)for(let k=0;k<width;k++)codes[i*width+k]=active[k].membership[data.algorithms[i]];
+// The worker receives only compact group IDs, not signatures or full data files.
+function calculator(){
+ let codes,width,count;
+ const pause=()=>new Promise(resolve=>setTimeout(resolve,0));
+ function distance(a,b){let d=0;for(let k=0;k<width;k++)d+=codes[a*width+k]!==codes[b*width+k];return d;}
+ return async function(job,report=()=>{},cancelled=()=>false){
+  if(job.type==='init'){codes=job.codes;width=job.width;count=job.count;return true;}
+  if(job.type==='block'){
+   const values=new Uint16Array(job.rows*job.columns);
+   for(let r=0;r<job.rows;r++){for(let c=0;c<job.columns;c++)values[r*job.columns+c]=distance(job.row+r,job.column+c);if(r%20===0)await pause();}
+   return values;
+  }
+  const buckets=Array.from({length:width+1},()=>({first:[],total:0}));let done=0;
+  function add(i,j){const value=distance(i,j),b=buckets[value];b.total++;if(b.first.length<10)b.first.push({i,j,value});}
+  if(job.type==='reference'){
+   for(let j=0;j<count;j++){if(j!==job.index)add(job.index,j);if(++done%2048===0)await pause();}
+  }else if(job.type==='global'){
+   const total=count*(count-1)/2;let lastReport=0;
+   for(let i=0;i<count;i++){
+    if(cancelled())throw new Error('Ranking cancelled.');
+    for(let j=i+1;j<count;j++)add(i,j);
+    done+=count-i-1;
+    if(i%10===0){
+     const now=Date.now();
+     if(now-lastReport>=300){report({done,total,closest:buckets.flatMap(b=>b.first).slice(0,10),furthest:[...buckets].reverse().flatMap(b=>b.first).slice(0,10)});lastReport=now;}
+     await pause();
+    }
+   }
+   report({done:total,total});
+  }else throw new Error('Unsupported comparison request');
+  return {closest:buckets.flatMap(b=>b.first).slice(0,10),furthest:[...buckets].reverse().flatMap(b=>b.first).slice(0,10),histogram:buckets.map(b=>b.total)};
+ };
+}
+const fallback=calculator();await fallback({type:'init',codes,width,count});
+let worker=null,serial=0;const pending=new Map();
+try{
+ const blob=new Blob([`const calculate=(${calculator.toString()})();onmessage=async e=>{try{const result=await calculate(e.data.job);postMessage({id:e.data.id,result});}catch(error){postMessage({id:e.data.id,error:error.message});}};`],{type:'text/javascript'});
+ const url=URL.createObjectURL(blob);worker=new Worker(url);URL.revokeObjectURL(url);
+ worker.onmessage=({data:message})=>{const item=pending.get(message.id);if(!item)return;pending.delete(message.id);message.error?item.reject(new Error(message.error)):item.resolve(message.result);};
+ worker.onerror=()=>{worker.terminate();worker=null;for(const item of pending.values())fallback(item.job).then(item.resolve,item.reject);pending.clear();};
+}catch(error){worker=null;}
+function calculate(job){if(!worker)return fallback(job);return new Promise((resolve,reject)=>{const id=++serial;pending.set(id,{resolve,reject,job});worker.postMessage({id,job});});}
+await calculate({type:'init',codes,width,count});
+window.addEventListener('pagehide',()=>{if(worker)worker.terminate();});
+$('range').textContent=`(0–${width} families)`;
+$('distance-summary').textContent=`${data.families.length-width} families are identical for all algorithms.`;
+function selectPair(i,j){$('first').value=data.algorithms[i];$('second').value=data.algorithms[j];$('filter').value='all';compare();$('pair-section').scrollIntoView({behavior:'smooth'});}
+function shortName(a){const match=a.match(/algo_(\d+)/);return match?'A'+match[1]:a;}
+function pageControl(container,title,size){
+ const label=element('label',title+' ',container),input=element('input',undefined,label);input.type='number';input.min=1;input.max=Math.max(1,Math.ceil(count/size));input.value=1;input.style.width='75px';
+ const pageTotal=element('span',` / ${input.max} `,label);
+ const previous=element('button','Previous',container),next=element('button','Next',container);previous.type=next.type='button';
+ const control={input,onchange:()=>{},setSize(value){size=value;input.max=Math.max(1,Math.ceil(count/size));input.value=1;pageTotal.textContent=` / ${input.max} `;control.start();},start(){const value=Math.max(1,Math.min(Number(input.max),Math.floor(Number(input.value)||1)));input.value=value;previous.disabled=value===1;next.disabled=value===Number(input.max);return (value-1)*size;}};
+ function change(delta){input.value=Number(input.value)+delta;control.start();control.onchange();}
+ previous.onclick=()=>change(-1);next.onclick=()=>change(1);input.onchange=()=>change(0);control.start();return control;
+}
+let size=50;
+const sizeLabel=element('label','Algorithms per page ', $('heat-controls'));
+const sizeSelect=element('select',undefined,sizeLabel);
+for(const value of [50,60,100]){const option=element('option',value,sizeSelect);option.value=value;}
+sizeSelect.value='50';
+const rowPage=pageControl($('heat-controls'),'Rows: page',size);
+const columnPage=pageControl($('heat-controls'),'Columns: page',size);
+const viewport=$('heat-scroll'),track=$('heat-track'),canvas=$('heat'),frame=$('diagram-frame');
+function isExpanded(){return document.fullscreenElement===frame||frame.classList.contains('expanded');}
+async function closeDiagram(){if(document.fullscreenElement===frame)await document.exitFullscreen();frame.classList.remove('expanded');await renderHeat();}
+$('fullscreen-diagram').onclick=async()=>{
+ try{if(frame.requestFullscreen)await frame.requestFullscreen();else frame.classList.add('expanded');}catch(error){frame.classList.add('expanded');}
+ viewport.scrollLeft=0;viewport.scrollTop=0;await renderHeat();
+};
+$('exit-diagram').onclick=()=>closeDiagram().catch(reportError);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&frame.classList.contains('expanded'))closeDiagram().catch(reportError);});
+document.addEventListener('fullscreenchange',()=>renderHeat().catch(reportError));
+// Narrow cells; long column IDs wrap in chunks of three digits.
+const cellSize=26,labelWidth=90;
+function diagramLabel(a){const match=a.match(/algo_(\d+)/);return match?match[1]:a;}
+function labelLines(a){return diagramLabel(a).match(/.{1,3}/g)||[''];}
+const headerHeight=Math.max(26,12*data.algorithms.reduce((n,a)=>Math.max(n,labelLines(a).length),1)+10);
+track.style.width=`${labelWidth+Math.min(size,count)*cellSize}px`;
+let blockVersion=0,visibleBlock=null,scrollTimer;
+async function renderHeat(){
+ const version=++blockVersion,rowStart=rowPage.start();
+ const pageColumnStart=columnPage.start();
+ const expanded=isExpanded();
+ const columnStart=expanded?pageColumnStart:Math.min(count-1,pageColumnStart+Math.floor(viewport.scrollLeft/cellSize));
+ const displayWidth=expanded?labelWidth+Math.min(size,count-pageColumnStart)*cellSize:Math.max(300,viewport.clientWidth);
+ const rows=Math.min(size,count-rowStart),pageColumns=Math.min(size,count-pageColumnStart);
+ track.style.width=`${labelWidth+pageColumns*cellSize}px`;
+ const columns=Math.min(pageColumnStart+pageColumns-columnStart,Math.ceil(displayWidth/cellSize)+1);
+ visibleBlock=null;
+ $('compute-status').textContent='Calculating visible comparisons…';
+ const values=await calculate({type:'block',row:rowStart,column:columnStart,rows,columns});if(version!==blockVersion)return;
+ const height=headerHeight+rows*cellSize;
+ canvas.width=displayWidth;canvas.height=height;
+ const scale=expanded?Math.min(1,Math.max(1,viewport.clientWidth-4)/displayWidth,Math.max(1,viewport.clientHeight-4)/height):1;
+ canvas.style.width=displayWidth*scale+'px';canvas.style.height=height*scale+'px';track.style.width=(expanded?displayWidth*scale:labelWidth+pageColumns*cellSize)+'px';track.style.height=height*scale+'px';
+ const ctx=canvas.getContext('2d');ctx.font='11px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';
+ ctx.fillStyle='white';ctx.fillRect(0,0,displayWidth,height);
+ const shift=expanded?0:viewport.scrollLeft;
+ for(let c=0;c<columns;c++){
+  const j=columnStart+c,x=labelWidth+(j-pageColumnStart)*cellSize-shift;
+  ctx.fillStyle='#eee';ctx.fillRect(x,0,cellSize-1,headerHeight-1);ctx.fillStyle='#222';
+  const lines=labelLines(data.algorithms[j]);lines.forEach((line,k)=>ctx.fillText(line,x+cellSize/2,headerHeight/2+(k-(lines.length-1)/2)*12));
+  for(let r=0;r<rows;r++){
+   const i=rowStart+r,value=values[r*columns+c],y=headerHeight+r*cellSize;
+   ctx.fillStyle=i===j?'#eee':`hsl(210 65% ${96-58*value/(width||1)}%)`;ctx.fillRect(x,y,cellSize-1,cellSize-1);
+   ctx.fillStyle=i!==j&&width&&value/width>.6?'white':'#222';ctx.fillText(i===j?'—':value,x+cellSize/2,y+cellSize/2);
+  }
+ }
+ ctx.fillStyle='white';ctx.fillRect(0,0,labelWidth,height);ctx.fillStyle='#222';ctx.fillText('Algorithm',labelWidth/2,headerHeight/2);
+ for(let r=0;r<rows;r++)ctx.fillText(diagramLabel(data.algorithms[rowStart+r]),labelWidth/2,headerHeight+(r+.5)*cellSize);
+ visibleBlock={rowStart,columnStart,pageColumnStart,rows,columns,values,shift};
+ $('compute-status').textContent=`Rows ${rowStart+1}–${rowStart+rows} · Columns ${pageColumnStart+1}–${pageColumnStart+pageColumns} · ${count.toLocaleString()} algorithms total`;
+}
+function cellAt(event){
+ if(!visibleBlock)return null;
+ const rect=canvas.getBoundingClientRect(),x=(event.clientX-rect.left)*canvas.width/rect.width,y=(event.clientY-rect.top)*canvas.height/rect.height;
+ if(x<labelWidth||y<headerHeight)return null;
+ const r=Math.floor((y-headerHeight)/cellSize),j=visibleBlock.pageColumnStart+Math.floor((x-labelWidth+visibleBlock.shift)/cellSize),c=j-visibleBlock.columnStart;
+ if(r<0||r>=visibleBlock.rows||c<0||c>=visibleBlock.columns)return null;
+ return {i:visibleBlock.rowStart+r,j,value:visibleBlock.values[r*visibleBlock.columns+c]};
+}
+canvas.onclick=event=>{const cell=cellAt(event);if(cell&&cell.i!==cell.j){if(isExpanded())closeDiagram().then(()=>selectPair(cell.i,cell.j)).catch(reportError);else selectPair(cell.i,cell.j);}};
+canvas.onmousemove=event=>{const cell=cellAt(event);canvas.title=cell?`${data.algorithms[cell.i]} vs ${data.algorithms[cell.j]}: ${cell.value} different, ${data.families.length-cell.value} shared families`:'';canvas.style.cursor=cell?'pointer':'default';};
+function reportError(error){$('compute-status').textContent=error.message;}
+rowPage.onchange=()=>renderHeat().catch(reportError);
+columnPage.onchange=()=>{viewport.scrollLeft=0;renderHeat().catch(reportError);};
+sizeSelect.onchange=()=>{size=Number(sizeSelect.value);rowPage.setSize(size);columnPage.setSize(size);viewport.scrollLeft=0;viewport.scrollTop=0;renderHeat().catch(reportError);};
+viewport.addEventListener('scroll',()=>{if(viewport.scrollLeft===(visibleBlock?.shift??-1))return;clearTimeout(scrollTimer);visibleBlock=null;scrollTimer=setTimeout(()=>renderHeat().catch(reportError),70);});
+window.addEventListener('resize',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>renderHeat().catch(reportError),100);});
+function showRanking(id,pairs){const list=$(id);list.replaceChildren();for(const pair of pairs){const li=element('li',undefined,list),button=element('button',`${shortName(data.algorithms[pair.i])} ↔ ${shortName(data.algorithms[pair.j])}: ${pair.value} different / ${data.families.length-pair.value} shared`,li);button.className='pair-button';button.type='button';button.onclick=()=>selectPair(pair.i,pair.j);}}
+let rankingWorker=null,rankingCancelled=false,finishCancelled=null;
+$('cancel-rank').onclick=()=>{rankingCancelled=true;if(rankingWorker){rankingWorker.terminate();rankingWorker=null;if(finishCancelled)finishCancelled(null);}};
+window.addEventListener('pagehide',()=>{if(rankingWorker)rankingWorker.terminate();rankingCancelled=true;});
+async function rank(){
+ const button=$('rank-reference');button.disabled=true;$('cancel-rank').hidden=false;rankingCancelled=false;
+ $('closest').replaceChildren();$('furthest').replaceChildren();
+ element('li','Calculating…', $('closest'));element('li','Calculating…', $('furthest'));
+ const total=count*(count-1)/2;
+ function progress({done,total,closest,furthest}){
+  $('ranking-scope').textContent=`Best found so far (provisional) · ${total?Math.floor(100*done/total):100}% · ${done.toLocaleString()} / ${total.toLocaleString()} pairs`;
+  if(closest)showRanking('closest',closest);if(furthest)showRanking('furthest',furthest);
+ }
+ progress({done:0,total});
+ try{
+  let result;
+  // Separate worker: a long global ranking never blocks matrix calculations.
+  try{
+   const blob=new Blob([`const calculate=(${calculator.toString()})();onmessage=async e=>{try{await calculate({type:'init',...e.data});const result=await calculate({type:'global'},progress=>postMessage({progress}));postMessage({result});}catch(error){postMessage({error:error.message});}};`],{type:'text/javascript'});
+   const url=URL.createObjectURL(blob);try{rankingWorker=new Worker(url);}finally{URL.revokeObjectURL(url);}
+  }catch(error){rankingWorker=null;}
+  if(rankingWorker){
+   result=await new Promise((resolve,reject)=>{
+    finishCancelled=resolve;
+    rankingWorker.onmessage=({data:message})=>{if(message.progress)progress(message.progress);else if(message.error)reject(new Error(message.error));else resolve(message.result);};
+    rankingWorker.onerror=()=>reject(new Error('Background ranking unavailable.'));
+    rankingWorker.postMessage({codes,width,count});
+   }).catch(async error=>{
+    if(rankingWorker){rankingWorker.terminate();rankingWorker=null;}
+    if(rankingCancelled)return null;
+    return fallback({type:'global'},progress,()=>rankingCancelled);
+   });
+  }else result=await fallback({type:'global'},progress,()=>rankingCancelled);
+  if(!result||rankingCancelled){$('ranking-scope').textContent='Ranking cancelled. Any displayed results are provisional; not all pairs were checked.';return;}
+  const differences=result.histogram.map((n,i)=>n?i:null).filter(v=>v!==null);
+  $('ranking-scope').textContent=`All ${count.toLocaleString()} algorithms · ${total.toLocaleString()} pairs`+(differences.length?` · ${differences[0]}–${differences.at(-1)} differences`:' · No distinct pairs');
+  showRanking('closest',result.closest);showRanking('furthest',result.furthest);
+ }catch(error){$('ranking-scope').textContent=error.message;}
+ finally{if(rankingWorker)rankingWorker.terminate();rankingWorker=null;finishCancelled=null;button.disabled=false;$('cancel-rank').hidden=true;}
+}
+$('rank-reference').onclick=()=>rank().catch(reportError);
+const matrixPage=pageControl($('matrix-controls'),'Algorithms: page',100);
+function renderMatrix(){
+ const start=matrixPage.start(),fragment=document.createDocumentFragment(),head=element('thead',undefined,fragment),hr=element('tr',undefined,head);element('th','Algorithm',hr);
+ for(const f of data.families){const th=element('th',`F${f.id}`,hr);th.title=f.title;}
+ const body=element('tbody',undefined,fragment);
+ for(const a of data.algorithms.slice(start,start+100)){const row=element('tr',undefined,body);const th=element('th',a,row);th.scope='row';for(const f of data.families)element('td',f.membership[a],row);}
+ $('matrix').replaceChildren(fragment);
+}
+matrixPage.onchange=renderMatrix;renderMatrix();
+// Build groups and member lists only when opened, in batches of 100.
+for(const f of data.families){
+ const node=element('details',undefined,$('tree'));element('summary',`Family ${f.id}: ${f.title} — ${f.groups.length} groups`,node);
+ node.addEventListener('toggle',()=>{
+  if(!node.open||node.dataset.loaded)return;node.dataset.loaded='true';let offset=0;
+  const more=element('button','Show more groups',node);more.type='button';
+  function batch(){
+   for(const g of f.groups.slice(offset,offset+100)){
+    const branch=element('details');branch.style.marginLeft='20px';element('summary',`Group ${g.id} — ${g.algorithms.length} algorithms`,branch);node.insertBefore(branch,more);
+    branch.addEventListener('toggle',()=>{
+     if(!branch.open||branch.dataset.loaded)return;branch.dataset.loaded='true';let member=0;const text=element('p','',branch),load=element('button','Show more algorithms',branch);load.type='button';
+     function members(){const part=g.algorithms.slice(member,member+100);text.textContent+=(member?', ':'')+part.join(', ');member+=part.length;load.hidden=member>=g.algorithms.length;}
+     load.onclick=members;members();
+    });
+   }
+   offset+=100;more.hidden=offset>=f.groups.length;
+  }
+  more.onclick=batch;batch();
+ });
+}
+await renderHeat();await rank();
+
+}
+start().catch(error=>{document.getElementById('load-status').textContent=error.message;document.getElementById('load-status').style.color='#a00';console.error(error);});
+</script></body></html>
