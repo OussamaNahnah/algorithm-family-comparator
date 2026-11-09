@@ -6,25 +6,28 @@ body{font:14px/1.6 system-ui,sans-serif;color:#222;max-width:1400px;margin:30px 
 button { margin: 3px 5px; padding: 5px 9px; } #heat-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; } #heat-controls label { margin:0; } #heat-controls > button { margin-left:0; }
 .heat button { margin:0; padding:0; width:24px; height:24px; }
 #exit-diagram{display:none} #diagram-frame:fullscreen,#diagram-frame.expanded{background:white;padding:12px;box-sizing:border-box;width:100vw;height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center} #diagram-frame.expanded{position:fixed;inset:0;z-index:9999} #diagram-frame:fullscreen #exit-diagram,#diagram-frame.expanded #exit-diagram{display:block;flex-shrink:0} #diagram-frame:fullscreen #heat-scroll,#diagram-frame.expanded #heat-scroll{max-height:none;overflow:hidden;width:100%;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
-</style></head><body><h1>Algorithm family comparison</h1>
-<p id="load-status" role="status">Loading classification data…</p>
+
+:root{--ink:#203148;--muted:#63738a;--line:#dce4ee;--accent:#245ca5}*{box-sizing:border-box}body{background:#f4f7fb;color:var(--ink);font:14px/1.6 system-ui,sans-serif;max-width:1480px;margin:32px auto;padding:0 24px}header{margin-bottom:24px}h1{font-size:30px;letter-spacing:-.04em;margin:0}h2{font-size:20px;letter-spacing:-.02em;margin:0 0 10px}h3{font-size:16px;margin:0 0 14px}p{color:var(--muted);margin:10px 0 16px}section{background:white;border:1px solid var(--line);border-radius:12px;padding:24px;margin:20px 0}button,select,input{font:inherit;border:1px solid #c6d2e1;border-radius:6px;background:white;color:var(--ink);padding:7px 10px}button{cursor:pointer}button:hover{background:#edf3fc;border-color:#779aca}button:disabled{opacity:.5;cursor:default}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #edb746;outline-offset:2px}#fullscreen-diagram,#rank-reference{color:var(--accent);font-weight:600}#heat-controls{padding:14px;background:#f5f8fc;border:1px solid var(--line);border-radius:8px;margin:16px 0}#compute-status{font-size:12px}#diagram-frame{border:1px solid var(--line);border-radius:8px;overflow:hidden}.scroll{max-height:65vh}th,td{border-color:var(--line);padding:10px}thead th{background:#f1f5fa;color:#435570}.same{background:#edf7f2}.different{background:#fff4e6}details{margin:8px 0}summary{color:#516783}.rankings{margin-top:24px}.rankings>div{border:1px solid var(--line);padding:18px;border-radius:8px}.rankings ol{list-style:none;padding:0;margin:0}.rankings li{border-top:1px solid #edf1f6;padding:7px 0}.pair-button{width:100%;display:grid;grid-template-columns:1fr auto;gap:4px 12px;text-align:left;border:0;margin:0;padding:5px 0;text-decoration:none;background:transparent;color:var(--ink)}.pair-button strong{font-size:12px;color:var(--accent)}.rank-track{height:4px;background:#edf1f6;grid-column:1 / -1;border-radius:4px;overflow:hidden}.rank-fill{display:block;height:100%;background:#3c75b8}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0}.stat{background:white;border:1px solid var(--line);border-radius:9px;padding:16px}.stat strong{font-size:26px;display:block;line-height:1.2;font-variant-numeric:tabular-nums}.stat span{color:var(--muted);font-size:12px}#ranking-progress{width:100%;height:9px;accent-color:#3676bd}#ranking-scope{margin-bottom:5px;font-size:13px}#summary{padding:14px;background:#f3f6fb;border-radius:7px;color:var(--ink);font-weight:600}.hist-row{display:grid;grid-template-columns:70px minmax(30px,1fr) 140px;gap:12px;align-items:center;font-size:12px;margin:6px 0}.hist-track{height:15px;background:#f0f4f9;border-radius:3px;overflow:hidden}.hist-fill{height:100%;min-width:0;background:#4b80bd}#distribution{border-top:1px solid var(--line);margin-top:24px;padding-top:20px}#distribution p{font-size:12px}.section-note{font-size:12px}#source-note{font-size:12px;overflow-wrap:anywhere}#source-note a{color:var(--accent)}@media(max-width:700px){body{padding:0 12px;margin:20px auto}section{padding:16px}.cards{gap:7px}.stat{padding:12px}.stat strong{font-size:21px}.hist-row{grid-template-columns:55px 1fr 100px}}
+
+</style></head><body><header><h1>Algorithm family comparison</h1><p>See where algorithms match—and where they differ.</p>
+<p id="load-status" role="status">Loading classification data…</p><p id="source-note"></p></header><div class="cards"><div class="stat"><strong id="stat-algorithms">—</strong><span>Algorithms</span></div><div class="stat"><strong id="stat-families">—</strong><span>Families compared</span></div><div class="stat"><strong id="stat-pairs">—</strong><span>Unique pairs</span></div></div>
 
 
-<section><h2>Family differences</h2>
-<p>Each cell counts different families. <strong>Lower = more similar.</strong> Click a cell to compare.</p><details><summary>How the score works</summary><p>Each family counts equally. Related families can count separately. The score counts group differences, not their magnitude.</p></details>
+<section><h2>Difference map</h2>
+<p>Each pair is shown once: (8, 9) is the same as (9, 8). A cell counts different families. <strong>Lighter = closer. Darker = more different.</strong> Click to inspect.</p><details><summary>How the score works</summary><p>Each family counts equally. Related families can count separately. The score counts group differences, not their magnitude.</p></details>
 <p>Fewer differences <span class="legend" aria-hidden="true"></span> More differences <span id="range"></span></p>
 <p id="distance-summary"></p>
 
-<div id="heat-controls"></div><p id="compute-status" role="status"></p><p id="ranking-scope"></p><button id="rank-reference" type="button">Recalculate all pairs</button><button id="cancel-rank" type="button" hidden>Cancel ranking</button>
-<p>All algorithms × all algorithms. Choose a page size and row/column pages; click a cell to compare.</p><button id="fullscreen-diagram" type="button" title="Fit diagram to screen">⛶ Fullscreen</button><div id="diagram-frame"><button id="exit-diagram" type="button">✕ Exit fullscreen (Esc)</button><div class="scroll" id="heat-scroll"><div id="heat-track" style="position:relative"><canvas id="heat" tabindex="0" aria-label="Family differences matrix. Click a cell, or use the two algorithm selectors below for an accessible comparison." style="position:sticky;left:0;display:block"></canvas></div></div></div>
+<div id="heat-controls"></div><p id="compute-status" role="status"></p><p id="ranking-scope" role="status"></p><progress id="ranking-progress" value="0" max="100" aria-label="All-pairs comparison progress"></progress><button id="rank-reference" type="button">Recalculate all pairs</button><button id="cancel-rank" type="button" hidden>Cancel ranking</button>
+<p>Choose row and column pages to explore any pair.</p><button id="fullscreen-diagram" type="button" title="Fit diagram to screen">⛶ Fullscreen</button><div id="diagram-frame"><button id="exit-diagram" type="button">✕ Exit fullscreen (Esc)</button><div class="scroll" id="heat-scroll"><div id="heat-track" style="position:relative"><div id="heat-header-pin" style="position:sticky;top:0;left:0;height:0;z-index:4;pointer-events:none"><canvas id="heat-header" aria-hidden="true" style="display:block"></canvas></div><canvas id="heat" tabindex="0" aria-label="Family differences matrix. Click a cell, or use the two algorithm selectors below for an accessible comparison." style="position:sticky;left:0;display:block"></canvas></div></div></div>
 <div class="rankings"><div><h3>Most similar pairs</h3><ol id="closest"></ol></div><div><h3>Most different pairs</h3><ol id="furthest"></ol></div></div>
-<p>Top 10 pairs shown; ties are possible.</p>
+<p class="section-note">10 pairs per list. Ties may include additional pairs. Bar length shows the fraction of families that differ.</p><div id="distribution"><h3>How differences are distributed</h3><p id="histogram-status">Available when the all-pairs comparison finishes.</p><div id="histogram"></div></div>
 </section>
 <section id="pair-section"><h2>Compare two algorithms</h2><label>First algorithm <select id="first"></select></label><label>Second algorithm <select id="second"></select></label>
 <label>Show <select id="filter"><option value="all">All families</option><option value="same">Shared groups only</option><option value="different">Different groups only</option></select></label>
 <p id="summary" role="status"></p><div class="scroll"><table><thead><tr><th>Family</th><th>Comparison</th><th>First group</th><th>Second group</th><th>Recorded signatures</th></tr></thead><tbody id="pairs"></tbody></table></div></section>
-<section><h2>Algorithm × family table</h2><p>Same number in a column = same group.</p><div id="matrix-controls"></div><div class="scroll"><table class="matrix" id="matrix"></table></div></section>
-<section><h2>Family → group → algorithms</h2><p>Expand a family and group to see its members.</p><div id="tree"></div></section>
+<section><h2>Group membership</h2><p>Same number in a column = same group.</p><div id="matrix-controls"></div><div class="scroll"><table class="matrix" id="matrix"></table></div></section>
+<section><h2>Browse families</h2><p>Expand a family and group to see its members.</p><div id="tree"></div></section>
 <script>
 // Data folder, relative to this HTML file (or a full URL).
 const CLASSIFICATION_DATA_PATH = new URLSearchParams(window.location.search).get('data') || 'global_classification_data';
@@ -64,6 +67,11 @@ async function start(){
 const data=await loadData();
 
 const $=id=>document.getElementById(id);
+$('stat-algorithms').textContent=data.algorithms.length.toLocaleString();
+$('stat-families').textContent=data.families.length.toLocaleString();
+$('stat-pairs').textContent=(data.algorithms.length*(data.algorithms.length-1)/2).toLocaleString();
+$('source-note').textContent='Data: '+CLASSIFICATION_DATA_PATH;
+
 function element(tag,text,parent){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(parent)parent.append(e);return e;}
 for(const id of ['first','second'])for(const a of data.algorithms){const o=element('option',a,$(id));o.value=a;}
 if(data.algorithms.length>1)$('second').selectedIndex=1;
@@ -72,12 +80,12 @@ function compare(){
  for(const f of data.families){const ga=f.membership[a],gb=f.membership[b],equal=ga===gb;const kind=equal?'same':'different';if(equal)same++;
  if($('filter').value!=='all'&&$('filter').value!==kind)continue;
  const row=element('tr',undefined,$('pairs'));row.className=kind;
- for(const text of [`${f.id}: ${f.title}`,equal?'Same group':'Different groups',ga,gb])element('td',text,row);
+ for(const text of [`${f.id}: ${f.title}`,equal?'Match':'Different',ga,gb])element('td',text,row);
  const cell=element('td',undefined,row),details=element('details',undefined,cell);element('summary','Show signatures',details);
  element('pre',`First: ${f.groups[ga-1].signature}
 Second: ${f.groups[gb-1].signature}`,details);
  }
- $('summary').textContent=`${same} shared · ${data.families.length-same} different families`;
+ $('summary').textContent=`${data.families.length-same} different / ${data.families.length} families · ${same} matching`;
 }
 for(const id of ['first','second','filter'])$(id).addEventListener('change',compare);compare();
 
@@ -95,7 +103,7 @@ function calculator(){
   if(job.type==='init'){codes=job.codes;width=job.width;count=job.count;return true;}
   if(job.type==='block'){
    const values=new Uint16Array(job.rows*job.columns);
-   for(let r=0;r<job.rows;r++){for(let c=0;c<job.columns;c++)values[r*job.columns+c]=distance(job.row+r,job.column+c);if(r%20===0)await pause();}
+   for(let r=0;r<job.rows;r++){for(let c=0;c<job.columns;c++)values[r*job.columns+c]=(job.unique&&job.row+r>=job.column+c)?0:distance(job.row+r,job.column+c);if(r%20===0)await pause();}
    return values;
   }
   const buckets=Array.from({length:width+1},()=>({first:[],total:0}));let done=0;
@@ -149,6 +157,7 @@ for(const value of [50,60,100]){const option=element('option',value,sizeSelect);
 sizeSelect.value='50';
 const rowPage=pageControl($('heat-controls'),'Rows: page',size);
 const columnPage=pageControl($('heat-controls'),'Columns: page',size);
+const uniqueLabel=element('label',undefined,$('heat-controls')),uniquePairs=element('input',undefined,uniqueLabel);uniquePairs.type='checkbox';uniquePairs.checked=true;element('span',' Unique pairs only',uniqueLabel);
 const viewport=$('heat-scroll'),track=$('heat-track'),canvas=$('heat'),frame=$('diagram-frame');
 function isExpanded(){return document.fullscreenElement===frame||frame.classList.contains('expanded');}
 async function closeDiagram(){if(document.fullscreenElement===frame)await document.exitFullscreen();frame.classList.remove('expanded');await renderHeat();}
@@ -177,7 +186,7 @@ async function renderHeat(){
  const columns=Math.min(pageColumnStart+pageColumns-columnStart,Math.ceil(displayWidth/cellSize)+1);
  visibleBlock=null;
  $('compute-status').textContent='Calculating visible comparisons…';
- const values=await calculate({type:'block',row:rowStart,column:columnStart,rows,columns});if(version!==blockVersion)return;
+ const values=await calculate({type:'block',row:rowStart,column:columnStart,rows,columns,unique:uniquePairs.checked});if(version!==blockVersion)return;
  const height=headerHeight+rows*cellSize;
  canvas.width=displayWidth;canvas.height=height;
  const scale=expanded?Math.min(1,Math.max(1,viewport.clientWidth-4)/displayWidth,Math.max(1,viewport.clientHeight-4)/height):1;
@@ -191,12 +200,19 @@ async function renderHeat(){
   const lines=labelLines(data.algorithms[j]);lines.forEach((line,k)=>ctx.fillText(line,x+cellSize/2,headerHeight/2+(k-(lines.length-1)/2)*12));
   for(let r=0;r<rows;r++){
    const i=rowStart+r,value=values[r*columns+c],y=headerHeight+r*cellSize;
+   if(uniquePairs.checked&&i>=j){ctx.fillStyle='#f5f7fa';ctx.fillRect(x,y,cellSize-1,cellSize-1);continue;}
    ctx.fillStyle=i===j?'#eee':`hsl(210 65% ${96-58*value/(width||1)}%)`;ctx.fillRect(x,y,cellSize-1,cellSize-1);
    ctx.fillStyle=i!==j&&width&&value/width>.6?'white':'#222';ctx.fillText(i===j?'—':value,x+cellSize/2,y+cellSize/2);
   }
  }
  ctx.fillStyle='white';ctx.fillRect(0,0,labelWidth,height);ctx.fillStyle='#222';ctx.fillText('Algorithm',labelWidth/2,headerHeight/2);
  for(let r=0;r<rows;r++)ctx.fillText(diagramLabel(data.algorithms[rowStart+r]),labelWidth/2,headerHeight+(r+.5)*cellSize);
+ // Keep column labels visible during vertical scrolling. Row labels are
+ // already drawn at the left edge of the horizontally pinned main canvas.
+ const pinnedHeader=$('heat-header');pinnedHeader.width=displayWidth;pinnedHeader.height=headerHeight;
+ pinnedHeader.style.width=displayWidth*scale+'px';pinnedHeader.style.height=headerHeight*scale+'px';
+ $('heat-header-pin').style.width=displayWidth*scale+'px';
+ pinnedHeader.getContext('2d').drawImage(canvas,0,0,displayWidth,headerHeight,0,0,displayWidth,headerHeight);
  visibleBlock={rowStart,columnStart,pageColumnStart,rows,columns,values,shift};
  $('compute-status').textContent=`Rows ${rowStart+1}–${rowStart+rows} · Columns ${pageColumnStart+1}–${pageColumnStart+pageColumns} · ${count.toLocaleString()} algorithms total`;
 }
@@ -206,17 +222,34 @@ function cellAt(event){
  if(x<labelWidth||y<headerHeight)return null;
  const r=Math.floor((y-headerHeight)/cellSize),j=visibleBlock.pageColumnStart+Math.floor((x-labelWidth+visibleBlock.shift)/cellSize),c=j-visibleBlock.columnStart;
  if(r<0||r>=visibleBlock.rows||c<0||c>=visibleBlock.columns)return null;
+ if(uniquePairs.checked&&visibleBlock.rowStart+r>=j)return null;
  return {i:visibleBlock.rowStart+r,j,value:visibleBlock.values[r*visibleBlock.columns+c]};
 }
 canvas.onclick=event=>{const cell=cellAt(event);if(cell&&cell.i!==cell.j){if(isExpanded())closeDiagram().then(()=>selectPair(cell.i,cell.j)).catch(reportError);else selectPair(cell.i,cell.j);}};
 canvas.onmousemove=event=>{const cell=cellAt(event);canvas.title=cell?`${data.algorithms[cell.i]} vs ${data.algorithms[cell.j]}: ${cell.value} different, ${data.families.length-cell.value} shared families`:'';canvas.style.cursor=cell?'pointer':'default';};
 function reportError(error){$('compute-status').textContent=error.message;}
 rowPage.onchange=()=>renderHeat().catch(reportError);
+uniquePairs.onchange=()=>renderHeat().catch(reportError);
 columnPage.onchange=()=>{viewport.scrollLeft=0;renderHeat().catch(reportError);};
 sizeSelect.onchange=()=>{size=Number(sizeSelect.value);rowPage.setSize(size);columnPage.setSize(size);viewport.scrollLeft=0;viewport.scrollTop=0;renderHeat().catch(reportError);};
 viewport.addEventListener('scroll',()=>{if(viewport.scrollLeft===(visibleBlock?.shift??-1))return;clearTimeout(scrollTimer);visibleBlock=null;scrollTimer=setTimeout(()=>renderHeat().catch(reportError),70);});
 window.addEventListener('resize',()=>{clearTimeout(scrollTimer);scrollTimer=setTimeout(()=>renderHeat().catch(reportError),100);});
-function showRanking(id,pairs){const list=$(id);list.replaceChildren();for(const pair of pairs){const li=element('li',undefined,list),button=element('button',`${shortName(data.algorithms[pair.i])} ↔ ${shortName(data.algorithms[pair.j])}: ${pair.value} different / ${data.families.length-pair.value} shared`,li);button.className='pair-button';button.type='button';button.onclick=()=>selectPair(pair.i,pair.j);}}
+function showRanking(id,pairs){
+ const list=$(id);list.replaceChildren();
+ for(const pair of pairs){
+  const li=element('li',undefined,list),button=element('button',undefined,li);button.className='pair-button';button.type='button';
+  element('span',`${shortName(data.algorithms[pair.i])} ↔ ${shortName(data.algorithms[pair.j])}`,button);
+  element('strong',`${pair.value} / ${data.families.length} differ`,button);
+  const track=element('span',undefined,button);track.className='rank-track';const fill=element('span',undefined,track);fill.className='rank-fill';fill.style.width=(100*pair.value/data.families.length)+'%';
+  button.title=`${data.families.length-pair.value} matching families; click to compare`;button.onclick=()=>selectPair(pair.i,pair.j);
+ }
+}
+function showDistribution(histogram){
+ const chart=$('histogram');chart.replaceChildren();const total=histogram.reduce((a,b)=>a+b,0),largest=histogram.reduce((a,b)=>Math.max(a,b),0);
+ $('histogram-status').textContent='All pairs · Bar length = pair count. Percentage = share of all pairs.';
+ histogram.forEach((value,score)=>{if(!value)return;const row=element('div',undefined,chart);row.className='hist-row';element('span',`${score} differ`,row);const track=element('div',undefined,row);track.className='hist-track';const fill=element('div',undefined,track);fill.className='hist-fill';fill.style.width=(100*value/(largest||1))+'%';element('span',`${value.toLocaleString()} (${(100*value/total).toFixed(1)}%)`,row);row.setAttribute('aria-label',`${score} different families: ${value} pairs`);});
+ if(!total)$('histogram-status').textContent='No distinct pairs to compare.';
+}
 let rankingWorker=null,rankingCancelled=false,finishCancelled=null;
 $('cancel-rank').onclick=()=>{rankingCancelled=true;if(rankingWorker){rankingWorker.terminate();rankingWorker=null;if(finishCancelled)finishCancelled(null);}};
 window.addEventListener('pagehide',()=>{if(rankingWorker)rankingWorker.terminate();rankingCancelled=true;});
@@ -226,9 +259,11 @@ async function rank(){
  element('li','Calculating…', $('closest'));element('li','Calculating…', $('furthest'));
  const total=count*(count-1)/2;
  function progress({done,total,closest,furthest}){
-  $('ranking-scope').textContent=`Best found so far (provisional) · ${total?Math.floor(100*done/total):100}% · ${done.toLocaleString()} / ${total.toLocaleString()} pairs`;
+  $('ranking-progress').value=total?100*done/total:100;
+  $('ranking-scope').textContent=`Scanning all pairs · Results so far · ${total?Math.floor(100*done/total):100}% · ${done.toLocaleString()} / ${total.toLocaleString()} pairs`;
   if(closest)showRanking('closest',closest);if(furthest)showRanking('furthest',furthest);
  }
+ $('histogram').replaceChildren();$('histogram-status').textContent='Available when the all-pairs comparison finishes.';
  progress({done:0,total});
  try{
   let result;
@@ -251,8 +286,9 @@ async function rank(){
   }else result=await fallback({type:'global'},progress,()=>rankingCancelled);
   if(!result||rankingCancelled){$('ranking-scope').textContent='Ranking cancelled. Any displayed results are provisional; not all pairs were checked.';return;}
   const differences=result.histogram.map((n,i)=>n?i:null).filter(v=>v!==null);
-  $('ranking-scope').textContent=`All ${count.toLocaleString()} algorithms · ${total.toLocaleString()} pairs`+(differences.length?` · ${differences[0]}–${differences.at(-1)} differences`:' · No distinct pairs');
+  $('ranking-scope').textContent=`Complete · All ${count.toLocaleString()} algorithms · ${total.toLocaleString()} pairs`+(differences.length?` · ${differences[0]}–${differences.at(-1)} differences`:' · No distinct pairs');
   showRanking('closest',result.closest);showRanking('furthest',result.furthest);
+  $('ranking-progress').value=100;showDistribution(result.histogram);
  }catch(error){$('ranking-scope').textContent=error.message;}
  finally{if(rankingWorker)rankingWorker.terminate();rankingWorker=null;finishCancelled=null;button.disabled=false;$('cancel-rank').hidden=true;}
 }
